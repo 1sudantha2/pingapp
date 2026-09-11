@@ -1,3 +1,6 @@
+<comment-tag>
+This updated version replaces the Keep-Alive logic with explicit connection closing to prevent stale socket exceptions and ensure consistent HTTPS traffic.
+</comment-tag>
 package com.ping.keepalive
 
 import android.app.NotificationChannel
@@ -67,29 +70,31 @@ class PingService : Service() {
         val targetUrl = prefs.getString("url", "https://oneapp.hutch.lk") ?: "https://oneapp.hutch.lk"
         val delayMillis = prefs.getInt("delay", 15) * 1000L
 
-        // 1. Android හි අඩුම CPU ප්‍රමුඛතාව ලබා දීම (0% කරා ගෙන යාමට)
         handlerThread = HandlerThread("UltraLightPingThread", Process.THREAD_PRIORITY_LOWEST).apply { start() }
         backgroundHandler = Handler(handlerThread!!.looper)
 
         pingRunnable = object : Runnable {
             override fun run() {
+                var connection: HttpURLConnection? = null
                 try {
-                    val connection = URL(targetUrl).openConnection() as HttpURLConnection
+                    val url = URL(targetUrl)
+                    connection = url.openConnection() as HttpURLConnection
                     connection.requestMethod = "HEAD"
                     
-                    // 2. Connection එක දිගටම තබා ගැනීම (TLS Handshake CPU බර නැති කිරීම)
-                    connection.setRequestProperty("Connection", "Keep-Alive")
-                    connection.connectTimeout = 3000
-                    connection.readTimeout = 3000
+                    // 1. Connection එක හැමවෙලේම අලුතින් යවන්න සකස් කිරීම (Hutch Server එකෙන් Block වීම වැළැක්වීමට)
+                    connection.setRequestProperty("Connection", "close")
+                    connection.setRequestProperty("User-Agent", "KeepAlive-Android/1.0")
+                    connection.connectTimeout = 5000
+                    connection.readTimeout = 5000
                     
-                    // Request එක යැවීම
+                    // 2. HTTPS Request එක අනිවාර්යයෙන්ම යැවීම
                     connection.responseCode
                     
-                    // 3. Disconnect කරන්නේ නැතිව ඉඩ නිදහස් කිරීම පමණක් සිදු කිරීම
-                    connection.inputStream?.close()
-                    connection.errorStream?.close()
                 } catch (e: Exception) {
                     // ජාල දෝෂ මඟහරියි
+                } finally {
+                    // 3. යැව්වට පස්සේ පාර සම්පූර්ණයෙන්ම වසා දැමීම (Stale Connection Errors වැළැක්වීමට)
+                    connection?.disconnect()
                 }
                 
                 // ඊළඟ Ping එක යනකම් Thread එක සම්පූර්ණයෙන්ම නිදි කරවයි
