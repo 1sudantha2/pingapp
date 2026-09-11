@@ -12,8 +12,8 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.os.Process
 import androidx.core.app.NotificationCompat
-import java.net.HttpURLConnection
 import java.net.URL
+import javax.net.ssl.HttpsURLConnection
 
 class PingService : Service() {
 
@@ -46,7 +46,7 @@ class PingService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Keep Alive is Active")
-            .setContentText("Zero-CPU mode is running...")
+            .setContentText("Ultra-Light Mode (Zero RAM Leak)")
             .setSmallIcon(android.R.drawable.ic_menu_upload)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
@@ -64,36 +64,39 @@ class PingService : Service() {
 
     private fun startOptimizedPingLoop() {
         val prefs = getSharedPreferences("PingPrefs", Context.MODE_PRIVATE)
-        val targetUrl = prefs.getString("url", "https://oneapp.hutch.lk") ?: "https://oneapp.hutch.lk"
+        val targetUrlStr = prefs.getString("url", "https://oneapp.hutch.lk") ?: "https://oneapp.hutch.lk"
         val delayMillis = prefs.getInt("delay", 15) * 1000L
+
+        // අලුත් URL Object එකක් හැමවෙලේම හදන්නේ නැතිව, එක පාරක් හදාගැනීම (RAM ඉතිරි කරයි)
+        val targetUrl = URL(targetUrlStr)
 
         handlerThread = HandlerThread("UltraLightPingThread", Process.THREAD_PRIORITY_LOWEST).apply { start() }
         backgroundHandler = Handler(handlerThread!!.looper)
 
         pingRunnable = object : Runnable {
             override fun run() {
-                var connection: HttpURLConnection? = null
+                var connection: HttpsURLConnection? = null
                 try {
-                    val url = URL(targetUrl)
-                    connection = url.openConnection() as HttpURLConnection
+                    connection = targetUrl.openConnection() as HttpsURLConnection
                     connection.requestMethod = "HEAD"
-                    
-                    // Connection එක හැමවෙලේම අලුතින් යවන්න සකස් කිරීම
                     connection.setRequestProperty("Connection", "close")
-                    connection.setRequestProperty("User-Agent", "KeepAlive-Android/1.0")
+                    connection.setRequestProperty("User-Agent", "KeepAlive-Android/2.0")
                     connection.connectTimeout = 5000
                     connection.readTimeout = 5000
                     
-                    // HTTPS Request එක අනිවාර්යයෙන්ම යැවීම
+                    // Request එක යැවීම
                     connection.responseCode
                     
+                    // (ඉතා වැදගත්) Memory Leak එක නැවැත්වීම සඳහා Streams වසා දැමීම
+                    connection.inputStream?.close()
+                    connection.errorStream?.close()
+                    
                 } catch (e: Exception) {
-                    // Error ආවත් දිගටම වැඩ කරයි
+                    // Ignore errors to keep running
                 } finally {
                     connection?.disconnect()
                 }
                 
-                // ඊළඟ Ping එක යනකම් Thread එක සම්පූර්ණයෙන්ම නිදි කරවයි
                 if (isRunning) {
                     backgroundHandler?.postDelayed(this, delayMillis)
                 }
