@@ -1,6 +1,3 @@
-<comment-tag>
-This updated version replaces the Keep-Alive logic with explicit connection closing to prevent stale socket exceptions and ensure consistent HTTPS traffic.
-</comment-tag>
 package com.ping.keepalive
 
 import android.app.NotificationChannel
@@ -81,19 +78,18 @@ class PingService : Service() {
                     connection = url.openConnection() as HttpURLConnection
                     connection.requestMethod = "HEAD"
                     
-                    // 1. Connection එක හැමවෙලේම අලුතින් යවන්න සකස් කිරීම (Hutch Server එකෙන් Block වීම වැළැක්වීමට)
+                    // Connection එක හැමවෙලේම අලුතින් යවන්න සකස් කිරීම
                     connection.setRequestProperty("Connection", "close")
                     connection.setRequestProperty("User-Agent", "KeepAlive-Android/1.0")
                     connection.connectTimeout = 5000
                     connection.readTimeout = 5000
                     
-                    // 2. HTTPS Request එක අනිවාර්යයෙන්ම යැවීම
+                    // HTTPS Request එක අනිවාර්යයෙන්ම යැවීම
                     connection.responseCode
                     
                 } catch (e: Exception) {
-                    // ජාල දෝෂ මඟහරියි
+                    // Error ආවත් දිගටම වැඩ කරයි
                 } finally {
-                    // 3. යැව්වට පස්සේ පාර සම්පූර්ණයෙන්ම වසා දැමීම (Stale Connection Errors වැළැක්වීමට)
                     connection?.disconnect()
                 }
                 
@@ -104,7 +100,6 @@ class PingService : Service() {
             }
         }
         
-        // පළමු Ping එක පටන් ගැනීම
         backgroundHandler?.post(pingRunnable!!)
     }
 
