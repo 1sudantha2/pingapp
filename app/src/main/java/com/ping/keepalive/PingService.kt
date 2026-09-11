@@ -12,8 +12,11 @@ import android.os.IBinder
 import android.os.PowerManager
 import android.os.Process
 import androidx.core.app.NotificationCompat
+import java.io.InputStream
+import java.io.OutputStream
 import java.net.URL
-import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLSocket
+import javax.net.ssl.SSLSocketFactory
 
 class PingService : Service() {
 
@@ -46,7 +49,7 @@ class PingService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val notification = NotificationCompat.Builder(this, CHANNEL_ID)
             .setContentTitle("Keep Alive is Active")
-            .setContentText("Ultra-Light Mode (Zero RAM Leak)")
+            .setContentText("Ultra-Light Mode (Termux Raw Socket)")
             .setSmallIcon(android.R.drawable.ic_menu_upload)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
@@ -67,34 +70,44 @@ class PingService : Service() {
         val targetUrlStr = prefs.getString("url", "https://oneapp.hutch.lk") ?: "https://oneapp.hutch.lk"
         val delayMillis = prefs.getInt("delay", 15) * 1000L
 
-        // අලුත් URL Object එකක් හැමවෙලේම හදන්නේ නැතිව, එක පාරක් හදාගැනීම (RAM ඉතිරි කරයි)
-        val targetUrl = URL(targetUrlStr)
-
-        handlerThread = HandlerThread("UltraLightPingThread", Process.THREAD_PRIORITY_LOWEST).apply { start() }
+        // අඩුම CPU ප්‍රමුඛතාවය (0.1% CPU සඳහා)
+        handlerThread = HandlerThread("TermuxStylePingThread", Process.THREAD_PRIORITY_LOWEST).apply { start() }
         backgroundHandler = Handler(handlerThread!!.looper)
 
         pingRunnable = object : Runnable {
             override fun run() {
-                var connection: HttpsURLConnection? = null
+                var socket: SSLSocket? = null
+                var outStream: OutputStream? = null
+                var inStream: InputStream? = null
+                
                 try {
-                    connection = targetUrl.openConnection() as HttpsURLConnection
-                    connection.requestMethod = "HEAD"
-                    connection.setRequestProperty("Connection", "close")
-                    connection.setRequestProperty("User-Agent", "KeepAlive-Android/2.0")
-                    connection.connectTimeout = 5000
-                    connection.readTimeout = 5000
+                    val urlObj = URL(targetUrlStr)
+                    val host = urlObj.host
+                    val path = if (urlObj.path.isEmpty()) "/" else urlObj.path
+
+                    // Termux (C/C++) Technique: කෙලින්ම Raw SSL Socket එකක් සෑදීම
+                    val factory = SSLSocketFactory.getDefault()
+                    socket = factory.createSocket(host, 443) as SSLSocket
+                    socket.soTimeout = 5000
+                    socket.startHandshake()
+
+                    // Raw HTTP Request එක කෙලින්ම Bytes විදිහට යැවීම (Android Objects නැත)
+                    val request = "HEAD $path HTTP/1.1\r\nHost: $host\r\nConnection: close\r\nUser-Agent: Termux/1.0\r\n\r\n"
+                    outStream = socket.outputStream
+                    outStream.write(request.toByteArray())
+                    outStream.flush()
                     
-                    // Request එක යැවීම
-                    connection.responseCode
-                    
-                    // (ඉතා වැදගත්) Memory Leak එක නැවැත්වීම සඳහා Streams වසා දැමීම
-                    connection.inputStream?.close()
-                    connection.errorStream?.close()
+                    // Memory පිරෙන්නේ නැති වෙන්න Response එකේ 1 Byte එකක් පමණක් කියවීම
+                    inStream = socket.inputStream
+                    inStream.read()
                     
                 } catch (e: Exception) {
-                    // Ignore errors to keep running
+                    // Ignore Network errors (Network කපන වෙලාවට App එක Crash නොවීම සඳහා)
                 } finally {
-                    connection?.disconnect()
+                    // Memory Leak වීම 100% ක් වැළැක්වීම සඳහා අනිවාර්යයෙන්ම Streams Close කිරීම
+                    try { inStream?.close() } catch (e: Exception) {}
+                    try { outStream?.close() } catch (e: Exception) {}
+                    try { socket?.close() } catch (e: Exception) {}
                 }
                 
                 if (isRunning) {
