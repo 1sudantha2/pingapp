@@ -10,6 +10,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.IBinder
 import android.os.PowerManager
+import android.os.Process
 import androidx.core.app.NotificationCompat
 import java.net.HttpURLConnection
 import java.net.URL
@@ -23,7 +24,6 @@ class PingService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
     private val CHANNEL_ID = "PingServiceChannel"
     
-    // අතිශය සැහැල්ලු Android Handler එක (Zero CPU සඳහා)
     private var handlerThread: HandlerThread? = null
     private var backgroundHandler: Handler? = null
     private var pingRunnable: Runnable? = null
@@ -67,8 +67,8 @@ class PingService : Service() {
         val targetUrl = prefs.getString("url", "https://oneapp.hutch.lk") ?: "https://oneapp.hutch.lk"
         val delayMillis = prefs.getInt("delay", 15) * 1000L
 
-        // අලුත් සැහැල්ලු Thread එකක් හැදීම
-        handlerThread = HandlerThread("UltraLightPingThread").apply { start() }
+        // 1. Android හි අඩුම CPU ප්‍රමුඛතාව ලබා දීම (0% කරා ගෙන යාමට)
+        handlerThread = HandlerThread("UltraLightPingThread", Process.THREAD_PRIORITY_LOWEST).apply { start() }
         backgroundHandler = Handler(handlerThread!!.looper)
 
         pingRunnable = object : Runnable {
@@ -76,15 +76,23 @@ class PingService : Service() {
                 try {
                     val connection = URL(targetUrl).openConnection() as HttpURLConnection
                     connection.requestMethod = "HEAD"
-                    connection.connectTimeout = 3000 // Timeout එක 3s වලට අඩු කළා
+                    
+                    // 2. Connection එක දිගටම තබා ගැනීම (TLS Handshake CPU බර නැති කිරීම)
+                    connection.setRequestProperty("Connection", "Keep-Alive")
+                    connection.connectTimeout = 3000
                     connection.readTimeout = 3000
+                    
+                    // Request එක යැවීම
                     connection.responseCode
-                    connection.disconnect()
+                    
+                    // 3. Disconnect කරන්නේ නැතිව ඉඩ නිදහස් කිරීම පමණක් සිදු කිරීම
+                    connection.inputStream?.close()
+                    connection.errorStream?.close()
                 } catch (e: Exception) {
                     // ජාල දෝෂ මඟහරියි
                 }
                 
-                // ඊළඟ Ping එක යනකම් CPU එක සම්පූර්ණයෙන්ම නිදි කරවයි
+                // ඊළඟ Ping එක යනකම් Thread එක සම්පූර්ණයෙන්ම නිදි කරවයි
                 if (isRunning) {
                     backgroundHandler?.postDelayed(this, delayMillis)
                 }
