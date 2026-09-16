@@ -111,7 +111,8 @@ class PingService : Service() {
 
         active = true
         failures = 0
-        cyclesSinceNotificationRefresh = 0
+        // Already at the threshold so the first real latency shows up right away.
+        cyclesSinceNotificationRefresh = NOTIFICATION_REFRESH_EVERY
         lastSettingsStamp = ""
         lastNotificationText = ""
 

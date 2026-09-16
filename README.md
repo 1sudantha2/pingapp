@@ -31,13 +31,19 @@ stopped **without opening the app**.
 
 ## Performance notes
 
-* Idle cost: the heartbeat thread sleeps between cycles, so a one-minute window costs a couple
-  of milliseconds of CPU (≈0.0x %) and no wakeups while the app is not running.
+* **Stopped** the app uses 0 % CPU and no wakeups - nothing runs in the background at all.
+* **Running**, each heartbeat costs a few milliseconds of CPU and reuses three things that the
+  old implementation paid for every cycle: the pre-built HTTP request bytes, the cached DNS
+  address, and the cached TLS session (so most cycles are a resumed, 1-round-trip handshake
+  instead of a full certificate exchange). At the default 15 s interval that is roughly
+  0.1-0.2 % of one core on a mid-range phone, with no CPU used between cycles at all.
 * The engine re-reads the interval between cycles, so changing it applies instantly.
-* Recommended for the lowest battery use: interval ≥ 15 s and **Reliable mode** off; the app then
-  never holds a wake lock (heartbeats still continue while the screen is off, they are just
-  batched by Doze).
-* Failures back off smoothly (up to 60 s) instead of hammering a dead network.
+* The wake lock is only held while the screen is **off** and only in reliable mode; the screen
+  being on releases it immediately, and it is renewed cycle by cycle so it can never leak.
+* Lowest battery use: interval ≥ 15 s and **Reliable mode** off - the app then never holds a
+  wake lock (heartbeats continue while the screen is off, but Doze may batch them).
+* Failures back off smoothly (up to 60 s) instead of hammering a dead network, and a stale
+  cached address is dropped so the next attempt resolves fresh.
 
 ## Build the APK on GitHub
 

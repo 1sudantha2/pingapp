@@ -25,6 +25,24 @@ class PingEngine {
         private val request: ByteArray?,
         private val httpLike: Boolean
     ) {
+        /**
+         * The resolved address is cached, so a heartbeat does not pay for a DNS lookup every
+         * cycle. It is dropped again as soon as a cycle fails for a non-TLS reason.
+         */
+        @Volatile
+        private var address: java.net.InetAddress? = null
+
+        fun address(): java.net.InetAddress {
+            address?.let { return it }
+            val resolved = java.net.InetAddress.getByName(host)
+            address = resolved
+            return resolved
+        }
+
+        fun invalidateAddress() {
+            address = null
+        }
+
         /** Sends the prebuilt request (when there is one) and waits for the first byte. */
         fun roundTrip(socket: Socket, timeoutMs: Int) {
             socket.tcpNoDelay = true
@@ -47,6 +65,19 @@ class PingEngine {
         const val NO_LATENCY = -1
         private const val CONNECT_TIMEOUT_MS = 4_000
         private const val READ_TIMEOUT_MS = 4_000
+
+        /**
+         * One process-wide context, so the TLS session cache is shared by the service and the
+         * "test now" button: resumed sessions cost one short round trip instead of a full
+         * handshake (much less CPU and radio time, lower measured latency).
+         */
+        private val sslFactory: SSLSocketFactory by lazy {
+            javax.net.ssl.SSLContext.getInstance("TLS").apply {
+                init(null, null, null)
+                clientSessionContext.sessionCacheSize = 8
+                clientSessionContext.sessionTimeout = 24 * 60 * 60
+            }.socketFactory
+        }
 
         /** Parses "host", "host:port", "http://host/path" or "https://host:port/path". */
         fun parse(input: String): Target? {
@@ -87,6 +118,10 @@ class PingEngine {
             }
 
             val colon = rest.lastIndexOf(':')
+            if (rest.count { it == ':' } > 1) {
+                // Bare IPv6 address, e.g. 2606:4700:4700::1111
+                return buildTarget(rest.trim().trim('/'), 443, false, "/")
+            }
             if (colon > 0 && rest.indexOf(':') == colon) {
                 val parsed = rest.substring(colon + 1).toIntOrNull()
                 if (parsed != null) {
@@ -102,7 +137,20 @@ class PingEngine {
                 port = 443
                 tls = true
             }
+            // A bare IP literal is treated as a TCP reachability check: no TLS handshake,
+            // no HTTP request, just the cheapest possible round trip.
+            if (!hasScheme && isIpLiteral(host)) tls = false
             return buildTarget(host, port, tls, path)
+        }
+
+        private fun isIpLiteral(host: String): Boolean {
+            if (host.contains(':')) return true // IPv6 shorthand
+            val parts = host.split('.')
+            if (parts.size != 4) return false
+            return parts.all { part ->
+                part.isNotEmpty() && part.length <= 3 && part.all { it.isDigit() } &&
+                    (part.toIntOrNull() ?: 256) <= 255
+            }
         }
 
         private fun buildTarget(host: String, port: Int, tls: Boolean, path: String): Target {
@@ -124,15 +172,13 @@ class PingEngine {
         }
     }
 
-    private val sslFactory: SSLSocketFactory by lazy { SSLSocketFactory.getDefault() as SSLSocketFactory }
-
     /** Runs one heartbeat and returns the round trip time. Never throws. */
     fun probe(target: Target, connectTimeoutMs: Int = CONNECT_TIMEOUT_MS): ProbeResult {
         val started = SystemClock.elapsedRealtime()
         var socket: Socket? = null
         return try {
             val plain = Socket()
-            plain.connect(InetSocketAddress(target.host, target.port), connectTimeoutMs)
+            plain.connect(InetSocketAddress(target.address(), target.port), connectTimeoutMs)
             val live: Socket = if (target.tls) {
                 (sslFactory.createSocket(plain, target.host, target.port, true) as SSLSocket).apply {
                     soTimeout = READ_TIMEOUT_MS
@@ -145,6 +191,8 @@ class PingEngine {
             target.roundTrip(live, READ_TIMEOUT_MS)
             ProbeResult(true, (SystemClock.elapsedRealtime() - started).toInt(), "")
         } catch (error: Throwable) {
+            // A stale cached address or a dead route must not poison the next attempt.
+            if (error !is javax.net.ssl.SSLException) target.invalidateAddress()
             ProbeResult(false, NO_LATENCY, describe(error))
         } finally {
             // Streams belong to the socket, so closing it releases everything without leaks.

@@ -167,6 +167,9 @@ object Booster {
     /** Start request coming from something the user just touched (activity, tile, widget). */
     fun start(context: Context): Boolean = try {
         ContextCompat.startForegroundService(context, serviceIntent(context, ACTION_START))
+        // Optimistic state so buttons, tile and widget react instantly; the service confirms
+        // it (and the state self-corrects on stop) within milliseconds.
+        markRunning(context, SystemClock.elapsedRealtime())
         true
     } catch (error: Throwable) {
         // Android 12+ can refuse a background foreground-service start. Instead of crashing
