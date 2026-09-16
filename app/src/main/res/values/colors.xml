@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Core palette: matches the app icon (deep navy + mint pulse). -->
+    <color name="bg">#0B1220</color>
+    <color name="surface">#111C2E</color>
+    <color name="surface_alt">#16233A</color>
+    <color name="stroke">#24334D</color>
+
+    <color name="accent">#4FE3A6</color>
+    <color name="accent_dim">#12352A</color>
+    <color name="accent_alt">#38BDF8</color>
+    <color name="danger">#FF6B6B</color>
+    <color name="danger_dim">#3A1A1E</color>
+
+    <color name="text_primary">#EAF2FF</color>
+    <color name="text_secondary">#93A6C4</color>
+    <color name="scrim">#99000000</color>
+</resources>

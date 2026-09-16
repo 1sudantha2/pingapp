@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <!-- Pulse ring, open at the top right, like the launcher icon -->
+    <path
+        android:pathData="M33.5,38.2 A17,17 0 1,1 38.2,33.5"
+        android:strokeColor="#4FE3A6"
+        android:strokeWidth="3"
+        android:strokeLineCap="round" />
+    <!-- Lightning bolt -->
+    <path
+        android:fillColor="#4FE3A6"
+        android:pathData="M20,16 L20,24.8 L22.4,24.8 L22.4,32 L28,22.4 L24.8,22.4 L28,16 Z" />
+</vector>
