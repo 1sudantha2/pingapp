@@ -141,7 +141,7 @@ class PingService : Service() {
         val reliable = Booster.reliableMode(this)
         applyWakeLockPolicy(reliable)
 
-        val stamp = settingsStamp(target, intervalMs / 1000L, reliable)
+        val stamp = settingsStamp(target, Booster.intervalSeconds(this), reliable)
         if (stamp != lastSettingsStamp) {
             lastSettingsStamp = stamp
             val parsed = PingEngine.parse(Booster.target(this))
@@ -184,7 +184,7 @@ class PingService : Service() {
     }
 
     /** Back off a little while the network is down, but never skip a keep-alive for long. */
-    private fun settingsStamp(destination: PingEngine.Target?, intervalSeconds: Long, reliable: Boolean): String =
+    private fun settingsStamp(destination: PingEngine.Target?, intervalSeconds: Int, reliable: Boolean): String =
         "${destination?.host}:${destination?.port}|$intervalSeconds|$reliable"
 
     private fun nextDelayMs(intervalMs: Long): Long {
