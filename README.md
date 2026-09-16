@@ -1,5 +1,9 @@
 # Ping Booster
 
+<p align="center">
+  <img src="docs/branding/icon-legacy-192.png" width="120" alt="Ping Booster icon">
+</p>
+
 An ultra-light Android "connection keeper": it sends a tiny heartbeat to a host you choose so
 mobile data sessions (e.g. Hutch / `oneapp.hutch.lk`) stay awake, and it can be started and
 stopped **without opening the app**.
@@ -20,6 +24,18 @@ stopped **without opening the app**.
 | Control | App had to be opened | **Quick Settings tile** + **home-screen widget** + notification action: one tap start/stop |
 | Icon | Default Android icon | Custom Ping Booster logo (adaptive icon, themed icon layer, matching notification icon) |
 | Start/stop | Could fail on Android 12+ background rules | Safe start/stop with `ForegroundServiceStartNotAllowedException` handling, never crashes |
+
+## ඉක්මන් ආරම්භය (Quick start)
+
+1. **Install** — GitHub Actions run එකේ artifact `PingBooster-APK` → `PingBooster-<run>-release.apk`.
+2. **Quick settings tile** එක add කරන්න: notification panel එක එකපාරක් පහළට drag කරලා, ආයෙත් පහළට → pencil (edit) icon → "Ping Booster" tile එක tiles area එකට drag කරන්න.
+   Android 13+ නම් app එකේ **Add Quick Settings tile** button එක ඔබන්න.
+3. **Start/Stop** — tile එක tap කරන්න (හෝ home-screen widget / notification action). App එක open කරන්න ඕන නෑ.
+   Tile එකේ දකුණු පසින් live latency එක පෙන්නනවා.
+4. **Battery** — අඩුම battery use සඳහා *Reliable mode* off කරන්න; phone එකේ battery optimizer එකෙන් Ping Booster exempt කරන්න (*Battery settings* button).
+5. **Target / Interval** — app එකේ card එකෙන් වෙනස් කරන්න; වෙනස්කම් ඊළඟ cycle එකේ ඉඳන් instant apply වෙනවා.
+
+අලුත් logo / icon preview: [`docs/branding/brand-sheet.png`](docs/branding/brand-sheet.png)
 
 ## Controls without opening the app
 
