@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name" translatable="false">Ping Booster</string>
+    <string name="app_tagline">Ultra-light connection keeper</string>
+
+    <!-- Status -->
+    <string name="status_running">Boosting</string>
+    <string name="status_stopped">Idle</string>
+    <string name="status_detail_idle">Tap start to keep your connection awake.</string>
+    <string name="status_detail_running">Keeping %1$s awake</string>
+    <string name="status_detail_running_errors">%1$s · last check: %2$s</string>
+    <string name="stat_latency">Latency</string>
+    <string name="stat_success">Success</string>
+    <string name="stat_checks">Checks</string>
+    <string name="stat_uptime">Uptime</string>
+    <string name="value_dash">—</string>
+    <string name="value_pending">…</string>
+    <string name="value_failed">failed</string>
+    <string name="value_ms">%1$d ms</string>
+    <string name="duration_hours">%1$dh %2$02dm</string>
+    <string name="duration_minutes">%1$dm %2$02ds</string>
+    <string name="duration_seconds">%1$ds</string>
+
+    <!-- Settings -->
+    <string name="label_target">Host or URL</string>
+    <string name="label_target_hint">Example: oneapp.hutch.lk or https://oneapp.hutch.lk</string>
+    <string name="label_interval">Interval (seconds)</string>
+    <string name="label_reliable">Reliable mode</string>
+    <string name="label_reliable_hint">Holds the CPU awake while the screen is off so no heartbeat is missed. Turn off for the lowest battery use.</string>
+    <string name="btn_start">Start</string>
+    <string name="btn_stop">Stop</string>
+    <string name="btn_test">Test now</string>
+
+    <!-- Quick control -->
+    <string name="label_quick_control">Control without opening the app</string>
+    <string name="quick_control_body">Add the Ping Booster tile to Quick Settings, or drop the widget on your home screen. Both start and stop the boost with a single tap.</string>
+    <string name="btn_add_tile">Add Quick Settings tile</string>
+    <string name="btn_battery">Battery settings</string>
+    <string name="tile_add_manual">Open the Quick Settings editor (swipe down twice → pencil icon) and drag “Ping Booster” into your tiles.</string>
+    <string name="battery_already_ignored">Battery optimisation is already off for Ping Booster.</string>
+
+    <!-- Notifications -->
+    <string name="notification_title">Ping Booster</string>
+    <string name="channel_status">Boost status</string>
+    <string name="channel_status_description">Silent status notification that keeps the booster alive.</string>
+    <string name="action_stop">Stop</string>
+    <string name="action_start_short" translatable="false">START</string>
+    <string name="action_stop_short" translatable="false">STOP</string>
+
+    <!-- Quick Settings tile -->
+    <string name="tile_label">Ping Booster</string>
+    <string name="tile_subtitle_running">%1$d ms</string>
+    <string name="tile_subtitle_idle">Tap to start</string>
+    <string name="tile_subtitle_waiting">Measuring…</string>
+    <string name="tile_toast_on">Ping Booster started</string>
+    <string name="tile_toast_off">Ping Booster stopped</string>
+
+    <!-- Widget -->
+    <string name="widget_label">Ping Booster</string>
+    <string name="widget_status_on">Boosting</string>
+    <string name="widget_status_off">Idle</string>
+    <string name="widget_detail_idle">Tap start to boost</string>
+    <string name="widget_detail_running">%1$d ms · %2$d checks</string>
+
+    <!-- Messages -->
+    <string name="error_target">Enter a valid host or URL</string>
+    <string name="error_interval">Use an interval between %1$d and %2$d seconds</string>
+    <string name="error_start_blocked">Android blocked the background start. Open the app and tap Start again.</string>
+    <string name="error_settings_unavailable">Battery settings are not available on this device</string>
+    <string name="permission_notification_denied">Notifications are off, so the booster status will stay hidden. You can enable them in system settings.</string>
+    <string name="toast_reliable_on">Reliable mode on</string>
+    <string name="toast_reliable_off">Reliable mode off — lowest battery use</string>
+    <string name="footer_version">Version %1$s · zero-poll engine</string>
+</resources>

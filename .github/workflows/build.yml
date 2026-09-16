@@ -1,19 +1,98 @@
-name: Build
-on: [push, workflow_dispatch]
+name: Build APK
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          distribution: 'temurin'
+          distribution: temurin
           java-version: '17'
-      - uses: gradle/actions/setup-gradle@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.5'
-      - run: gradle assembleDebug
-      - uses: actions/upload-artifact@v4
+          gradle-version: '8.9'
+          cache-read-only: false
+
+      - name: Build debug + release APKs
+        id: gradle
+        run: |
+          set -o pipefail
+          gradle --no-daemon assembleDebug assembleRelease 2>&1 | tee build.log
+
+      # Turns compiler/resource errors into check-run annotations, so a failing build is
+      # readable straight from the Actions page (and from the API).
+      - name: Report build errors
+        if: failure()
+        run: |
+          {
+            echo "## Build output (last lines)"
+            echo '```'
+            tail -n 120 build.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          grep -nE "^(e: |w: |error:)|FAILURE:|What went wrong|Execution failed|Caused by|> Task .* FAILED|AAPT|error:" build.log \
+            | tail -n 40 \
+            | while IFS= read -r line; do
+                echo "::error title=Gradle::$line"
+              done
+          exit 1
+
+      - name: Collect APKs
+        run: |
+          mkdir -p artifacts
+          cp app/build/outputs/apk/release/app-release.apk "artifacts/PingBooster-${GITHUB_RUN_NUMBER}-release.apk"
+          cp app/build/outputs/apk/debug/app-debug.apk "artifacts/PingBooster-${GITHUB_RUN_NUMBER}-debug.apk"
+          cd artifacts
+          sha256sum *.apk | tee SHA256SUMS.txt
+          ls -la
+
+      # Prints the facts of the built APKs as annotations (package name, label, signature).
+      - name: Verify APKs
+        run: |
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          AAPT2=$(ls -1 "$SDK"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1)
+          APKSIGNER=$(ls -1 "$SDK"/build-tools/*/apksigner 2>/dev/null | sort -V | tail -1)
+          for apk in app/build/outputs/apk/release/app-release.apk app/build/outputs/apk/debug/app-debug.apk; do
+            name=$(basename "$apk")
+            size=$(du -h "$apk" | cut -f1)
+            facts=$("$AAPT2" dump badging "$apk" 2>/dev/null | grep -E "^(package|application-label:|launchable-activity|sdkVersion|targetSdkVersion)" | tr '\n' ' ')
+            echo "::notice title=$name ($size)::$facts"
+            signer=$("$APKSIGNER" verify --print-certs "$apk" 2>/dev/null | grep -i "Signer #1 certificate DN" | head -1)
+            echo "::notice title=$name signature::$signer"
+            echo "::notice title=$name sha256::$(sha256sum "$apk" | cut -d" " -f1)"
+          done
+
+      - name: Upload APKs
+        uses: actions/upload-artifact@v4
         with:
-          name: KeepAlive-App
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: PingBooster-APK
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Attach APKs to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.apk
+          generate_release_notes: true
