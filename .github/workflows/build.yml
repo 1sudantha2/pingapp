@@ -34,7 +34,28 @@ jobs:
           cache-read-only: false
 
       - name: Build debug + release APKs
-        run: gradle --no-daemon --stacktrace assembleDebug assembleRelease
+        id: gradle
+        run: |
+          set -o pipefail
+          gradle --no-daemon assembleDebug assembleRelease 2>&1 | tee build.log
+
+      # Turns compiler/resource errors into check-run annotations, so a failing build is
+      # readable straight from the Actions page (and from the API).
+      - name: Report build errors
+        if: failure()
+        run: |
+          {
+            echo "## Build output (last lines)"
+            echo '```'
+            tail -n 120 build.log
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          grep -nE "^(e: |w: |error:)|FAILURE:|What went wrong|Execution failed|Caused by|> Task .* FAILED|AAPT|error:" build.log \
+            | tail -n 40 \
+            | while IFS= read -r line; do
+                echo "::error title=Gradle::$line"
+              done
+          exit 1
 
       - name: Collect APKs
         run: |
